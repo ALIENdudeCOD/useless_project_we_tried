@@ -1,11 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0"
-    >
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
     <title>Random Access Memories</title>
 
@@ -16,162 +14,213 @@
     <main class="app">
         <header class="app-header">
             <div>
-                <p class="eyebrow">Your personal workspace</p>
-
+                <p class="eyebrow">Personal workspace</p>
                 <h1>Random Access Memories</h1>
-
                 <p class="subtitle">
-                    Keep track of notes, reminders, and everyday tasks.
+                    Notes, reminders, and everyday tasks.
                 </p>
             </div>
-
         </header>
 
         <section class="workspace">
-            <section class="panel">
-                <div class="section-heading">
-                    <div>
-                        <p class="eyebrow">01</p>
-                        <h2>Reminders</h2>
-                    </div>
-
-                    <p class="section-note">
-                        Keep track of important reminders.
-                    </p>
-                </div>
-
-                <form id="reminder-form" class="form-grid">
-                    <label>
-                        Reminder
-                        <input
-                            id="reminder-text"
-                            type="text"
-                            placeholder="Remind me to..."
-                            required
-                        >
-                    </label>
-
-                    <label>
-                        Time
-                        <input
-                            id="reminder-time"
-                            type="datetime-local"
-                            required
-                        >
-                    </label>
-
-                    <button type="submit">
-                        Save reminder
-                    </button>
-                </form>
-
-                <div
-                    id="reminders-container"
-                    class="entries"
-                ></div>
-            </section>
-
-            <section class="panel">
-                <div class="section-heading">
-                    <div>
-                        <p class="eyebrow">02</p>
-                        <h2>Notes</h2>
-                    </div>
-
-                    <p class="section-note">
-                        Write down anything you want to remember.
-                    </p>
-                </div>
-
-                <form id="note-form" class="form-grid">
-                    <label>
-                        Title
-                        <input
-                            id="note-title"
-                            type="text"
-                            placeholder="Memory title"
-                            required
-                        >
-                    </label>
-
-                    <label>
-                        Topic
-                        <input
-                            id="note-topic"
-                            type="text"
-                            placeholder="Optional topic"
-                        >
-                    </label>
-
-                    <label>
-                        Content
-                        <textarea
-                            id="note-content"
-                            rows="5"
-                            placeholder="Write something worth remembering..."
-                            required
-                        ></textarea>
-                    </label>
-
-                    <label>
-                        Priority
-                        <select id="note-priority">
-                            <option value="low">Low</option>
-                            <option value="medium" selected>
-                                Medium
-                            </option>
-                            <option value="high">High</option>
-                        </select>
-                    </label>
-
-                    <button type="submit">
-                        Save note
-                    </button>
-                </form>
-
-                <div
-                    id="notes-container"
-                    class="entries"
-                ></div>
-            </section>
-
-            <section class="panel">
-                <div class="section-heading">
-                    <div>
-                        <p class="eyebrow">03</p>
-                        <h2>Lists and tasks</h2>
-                    </div>
-
-                    <p class="section-note">
-                        Organize tasks and everyday errands.
-                    </p>
-                </div>
-
-                <form id="list-form" class="form-grid">
-                    <label>
-                        List title
-                        <input
-                            id="list-title"
-                            type="text"
-                            placeholder="Shopping, work, errands..."
-                            required
-                        >
-                    </label>
-
-                    <button type="submit">
-                        Create list
-                    </button>
-                </form>
-
-                <div
-                    id="lists-container"
-                    class="entries"
-                ></div>
-            </section>
+            <div id="reminders-container" class="entries"></div>
+            <div id="notes-container" class="entries"></div>
+            <div id="lists-container" class="entries"></div>
         </section>
-
     </main>
 
+    <!-- Floating plus button -->
+    <button id="add-button" class="floating-add-button" type="button" aria-label="Add item">
+        +
+    </button>
+
+    <!-- Add-item popup -->
+    <div id="add-popup" class="popup-overlay" hidden>
+        <section class="add-popup" role="dialog" aria-modal="true">
+            <button id="close-popup" class="close-popup" type="button" aria-label="Close popup">
+                ×
+            </button>
+
+            <h2>Create something</h2>
+            <p>What would you like to add?</p>
+
+            <div class="add-options">
+                <button type="button" data-open-form="note-form">
+                    <strong>Note</strong>
+                    <span>Write something down</span>
+                </button>
+
+                <button type="button" data-open-form="reminder-form">
+                    <strong>Reminder</strong>
+                    <span>Remember something later</span>
+                </button>
+
+                <button type="button" data-open-form="list-form">
+                    <strong>Task list</strong>
+                    <span>Organize everyday tasks</span>
+                </button>
+            </div>
+
+            <!-- Note form -->
+            <form id="note-form" class="popup-form">
+                <h3>New note</h3>
+
+                <label>
+                    Title
+                    <input id="note-title" type="text" placeholder="Note title" required>
+                </label>
+
+                <label>
+                    Topic
+                    <input id="note-topic" type="text" placeholder="Optional topic">
+                </label>
+
+                <label>
+                    Content
+                    <textarea id="note-content" rows="5" placeholder="Write something..." required></textarea>
+                </label>
+
+                <label>
+                    Priority
+                    <select id="note-priority">
+                        <option value="low">Low</option>
+                        <option value="medium" selected>Medium</option>
+                        <option value="high">High</option>
+                    </select>
+                </label>
+
+                <div class="popup-actions">
+                    <button type="submit">Save note</button>
+
+                    <button type="button" class="secondary-button" data-back>
+                        Back
+                    </button>
+                </div>
+            </form>
+
+            <!-- Reminder form -->
+            <form id="reminder-form" class="popup-form">
+                <h3>New reminder</h3>
+
+                <label>
+                    Reminder
+                    <input id="reminder-text" type="text" placeholder="Remind me to..." required>
+                </label>
+
+                <label>
+                    Time
+                    <input id="reminder-time" type="datetime-local" required>
+                </label>
+
+                <div class="popup-actions">
+                    <button type="submit">Save reminder</button>
+                    <button type="button" class="secondary-button" data-back>
+                        Back
+                    </button>
+                </div>
+            </form>
+
+            <!-- Task-list form -->
+            <form id="list-form" class="popup-form">
+                <h3>New task list</h3>
+
+                <label>
+                    List title
+                    <input id="list-title" type="text" placeholder="Shopping, work, errands..." required>
+                </label>
+                <label>
+                    Priority
+                    <select id="list-priority">
+                        <option value="low">Low</option>
+                        <option value="medium" selected>Medium</option>
+                        <option value="high">High</option>
+                    </select>
+                </label>
+
+                <div class="popup-actions">
+                    <button type="submit">Create list</button>
+                    <button type="button" class="secondary-button" data-back>
+                        Back
+                    </button>
+                </div>
+            </form>
+        </section>
+    </div>
+
     <script src="script.js"></script>
+
+    <script>
+        const addButton = document.getElementById("add-button");
+        const popup = document.getElementById("add-popup");
+        const closePopup = document.getElementById("close-popup");
+        const addOptions = document.querySelector(".add-options");
+        const popupForms = document.querySelectorAll(".popup-form");
+
+        function openPopup() {
+            popup.hidden = false;
+            showAddOptions();
+        }
+
+        function closeAddPopup() {
+            popup.hidden = true;
+            popupForms.forEach((form) => {
+                form.reset();
+                form.classList.remove("active");
+            });
+        }
+
+        function showAddOptions() {
+            addOptions.classList.add("active");
+
+            popupForms.forEach((form) => {
+                form.classList.remove("active");
+            });
+        }
+
+        function showForm(formId) {
+            addOptions.classList.remove("active");
+
+            popupForms.forEach((form) => {
+                form.classList.toggle("active", form.id === formId);
+            });
+
+            document
+                .getElementById(formId)
+                ?.querySelector("input, textarea, select")
+                ?.focus();
+        }
+
+        addButton.addEventListener("click", openPopup);
+        closePopup.addEventListener("click", closeAddPopup);
+
+        popup.addEventListener("click", (event) => {
+            if (event.target === popup) {
+                closeAddPopup();
+            }
+        });
+
+        document.querySelectorAll("[data-open-form]").forEach((button) => {
+            button.addEventListener("click", () => {
+                showForm(button.dataset.openForm);
+            });
+        });
+
+        document.querySelectorAll("[data-back]").forEach((button) => {
+            button.addEventListener("click", showAddOptions);
+        });
+
+        popupForms.forEach((form) => {
+            form.addEventListener("submit", () => {
+                setTimeout(closeAddPopup, 0);
+            });
+        });
+
+        document.addEventListener("keydown", (event) => {
+            if (event.key === "Escape" && !popup.hidden) {
+                closeAddPopup();
+            }
+        });
+    </script>
 </body>
+
 </html>

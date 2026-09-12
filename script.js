@@ -1,24 +1,25 @@
 "use strict";
 
 /*
-  Random Access Memories
-  Dependency-free memory simulation.
+    Random Access Memories
+    Dependency-free memory simulation.
 
-  Features:
-  - Reminders can fail.
-  - Repeated reminders become more reliable.
-  - Failed reminders produce delayed regret notifications.
-  - Notes gradually lose detail.
-  - Higher-priority notes fade more slowly.
-  - Opening a note strengthens it.
-  - Lists/tasks forget approximately half their items.
-  - Three simulated days without visiting clears everything.
-  - Demo time is independent from real time.
+    Features:
+    - Real-time reminders while the page is open.
+    - Browser notifications with in-app fallback.
+    - Reminder states: Upcoming, Due now, Triggered, Completed, Overdue.
+    - Notes gradually lose detail.
+    - Higher-priority notes fade more slowly.
+    - Opening a note strengthens it.
+    - Lists/tasks forget approximately half their items.
+    - Three simulated days without visiting clears everything.
+    - Demo time is independent from real time.
 */
 
-const STORAGE_KEY = "random-access-memories-v4";
+const STORAGE_KEY = "random-access-memories-v5";
 
-const MINUTE = 60 * 1000;
+const SECOND = 1000;
+const MINUTE = 60 * SECOND;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
 const WEEK = 7 * DAY;
@@ -62,6 +63,7 @@ const elements = {
 
     listForm: document.getElementById("list-form"),
     listTitle: document.getElementById("list-title"),
+    listPriority: document.getElementById("list-priority"),
     listsContainer: document.getElementById("lists-container"),
 
     eventLog: document.getElementById("event-log")
@@ -76,7 +78,10 @@ function now() {
 }
 
 function createId() {
-    if (window.crypto && typeof window.crypto.randomUUID === "function") {
+    if (
+        window.crypto &&
+        typeof window.crypto.randomUUID === "function"
+    ) {
         return window.crypto.randomUUID();
     }
 
@@ -120,6 +125,30 @@ function formatRelativeTime(timestamp) {
     return `in ${days} day${days === 1 ? "" : "s"}`;
 }
 
+function formatDuration(milliseconds) {
+    const days = Math.floor(milliseconds / DAY);
+    const hours = Math.floor((milliseconds % DAY) / HOUR);
+    const minutes = Math.floor((milliseconds % HOUR) / MINUTE);
+
+    const parts = [];
+
+    if (days > 0) {
+        parts.push(`${days} day${days === 1 ? "" : "s"}`);
+    }
+
+    if (hours > 0) {
+        parts.push(`${hours} hour${hours === 1 ? "" : "s"}`);
+    }
+
+    if (minutes > 0) {
+        parts.push(`${minutes} minute${minutes === 1 ? "" : "s"}`);
+    }
+
+    return parts.length > 0
+        ? parts.join(", ")
+        : "less than a minute";
+}
+
 function logEvent(message) {
     state.eventLog.unshift({
         id: createId(),
@@ -147,23 +176,76 @@ function loadState() {
         state = {
             ...state,
             ...parsedState,
+
             reminders: Array.isArray(parsedState.reminders)
                 ? parsedState.reminders
                 : [],
+
             notes: Array.isArray(parsedState.notes)
                 ? parsedState.notes
                 : [],
+
             lists: Array.isArray(parsedState.lists)
                 ? parsedState.lists
                 : [],
+
             eventLog: Array.isArray(parsedState.eventLog)
                 ? parsedState.eventLog
                 : []
         };
+
+        normalizeState();
     } catch (error) {
         console.error("Could not load saved state:", error);
         localStorage.removeItem(STORAGE_KEY);
     }
+}
+
+function normalizeState() {
+    state.reminders = state.reminders.map(reminder => ({
+        id: reminder.id || createId(),
+        text: reminder.text || "Untitled reminder",
+        timestamp: Number(reminder.timestamp) || Date.now(),
+        attempts: Number(reminder.attempts) || 0,
+        completed: Boolean(reminder.completed),
+        triggered: Boolean(reminder.triggered),
+        failed: Boolean(reminder.failed),
+        regretShown: Boolean(reminder.regretShown),
+        createdAt: Number(reminder.createdAt) || Date.now(),
+        triggeredAt: reminder.triggeredAt || null,
+        completedAt: reminder.completedAt || null,
+        regretAt: reminder.regretAt || null
+    }));
+
+    state.notes = state.notes.map(note => ({
+        id: note.id || createId(),
+        title: note.title || "Untitled note",
+        topic: note.topic || "",
+        originalContent: note.originalContent || "",
+        currentContent: note.currentContent || note.originalContent || "",
+        priority: priorityToNumber(note.priority),
+        memoryStrength: Number(note.memoryStrength) || 1,
+        forgettingStage: Number(note.forgettingStage) || 0,
+        openCount: Number(note.openCount) || 0,
+        createdAt: Number(note.createdAt) || Date.now(),
+        nextForgetAt: Number(note.nextForgetAt) || Date.now() + DAY
+    }));
+
+    state.lists = state.lists.map(list => ({
+        id: list.id || createId(),
+        title: list.title || "Untitled list",
+        priority: priorityToNumber(list.priority),
+        createdAt: Number(list.createdAt) || Date.now(),
+        items: Array.isArray(list.items)
+            ? list.items.map(task => ({
+                id: task.id || createId(),
+                text: task.text || "",
+                completed: Boolean(task.completed),
+                createdAt: Number(task.createdAt) || Date.now(),
+                lastChecked: Number(task.lastChecked) || Date.now()
+            }))
+            : []
+    }));
 }
 
 function priorityToNumber(priority) {
@@ -200,19 +282,115 @@ function priorityName(priority) {
 }
 
 /* --------------------------------------------------
+   In-app notifications
+-------------------------------------------------- */
+
+function showInAppNotification(title, message) {
+    let container = document.getElementById("in-app-notifications");
+
+    if (!container) {
+        container = document.createElement("div");
+        container.id = "in-app-notifications";
+
+        Object.assign(container.style, {
+            position: "fixed",
+            top: "1rem",
+            right: "1rem",
+            zIndex: "9999",
+            display: "flex",
+            flexDirection: "column",
+            gap: "0.75rem",
+            maxWidth: "min(24rem, calc(100vw - 2rem))"
+        });
+
+        document.body.appendChild(container);
+    }
+
+    const notification = document.createElement("div");
+
+    Object.assign(notification.style, {
+        padding: "1rem",
+        background: "var(--surface, white)",
+        color: "var(--text, black)",
+        border: "1px solid var(--border, #ddd)",
+        borderRadius: "0.75rem",
+        boxShadow: "var(--shadow, 0 8px 24px rgba(0,0,0,.15))"
+    });
+
+    notification.innerHTML = `
+        <strong>${escapeHtml(title)}</strong>
+        <p>${escapeHtml(message)}</p>
+    `;
+
+    container.appendChild(notification);
+
+    setTimeout(() => {
+        notification.remove();
+    }, 8000);
+}
+
+async function requestNotificationPermission() {
+    if (!("Notification" in window)) {
+        return "unsupported";
+    }
+
+    if (Notification.permission === "granted") {
+        return "granted";
+    }
+
+    if (Notification.permission === "denied") {
+        return "denied";
+    }
+
+    try {
+        return await Notification.requestPermission();
+    } catch (error) {
+        console.error("Notification permission failed:", error);
+        return "denied";
+    }
+}
+
+function notifyReminder(reminder) {
+    const title = "Reminder";
+    const message = reminder.text;
+
+    if (
+        "Notification" in window &&
+        Notification.permission === "granted"
+    ) {
+        try {
+            new Notification(title, {
+                body: message,
+                tag: `reminder-${reminder.id}`
+            });
+
+            return;
+        } catch (error) {
+            console.error("Browser notification failed:", error);
+        }
+    }
+
+    showInAppNotification(title, message);
+}
+
+/* --------------------------------------------------
    Reminder system
 -------------------------------------------------- */
 
-function reminderSuccessChance(reminder) {
-    /*
-      First attempt: 0%.
-      Every repeated attempt increases the chance.
-      The chance never exceeds 100%.
-    */
+function getReminderStatus(reminder) {
+    if (reminder.completed) {
+        return "Completed";
+    }
 
-    const attempts = Number(reminder.attempts) || 0;
+    if (reminder.triggered) {
+        return "Triggered";
+    }
 
-    return Math.min(1, attempts * 0.25);
+    if (now() >= reminder.timestamp) {
+        return "Due now";
+    }
+
+    return "Upcoming";
 }
 
 function createReminder(text, timestamp) {
@@ -222,65 +400,66 @@ function createReminder(text, timestamp) {
         timestamp,
         attempts: 0,
         completed: false,
+        triggered: false,
         failed: false,
         regretShown: false,
-        createdAt: now()
+        createdAt: now(),
+        triggeredAt: null,
+        completedAt: null,
+        regretAt: null
     };
 
     state.reminders.push(reminder);
 
     logEvent(`Created reminder: "${text}"`);
+
     saveState();
     renderAll();
 }
 
-function attemptReminder(reminder) {
-    if (reminder.completed || reminder.failed) {
-        return;
-    }
-
-    reminder.attempts += 1;
-
-    const chance = reminderSuccessChance(reminder);
-    const succeeded = Math.random() < chance;
-
-    if (succeeded) {
-        reminder.completed = true;
-
-        logEvent(`Reminder succeeded: "${reminder.text}"`);
-    } else {
-        reminder.failed = true;
-        reminder.regretAt = now() + REGRET_DELAY;
-
-        logEvent(`Reminder failed: "${reminder.text}"`);
-    }
-}
-
 function processReminders() {
+    let changed = false;
+
     for (const reminder of state.reminders) {
         if (
             !reminder.completed &&
-            !reminder.failed &&
+            !reminder.triggered &&
             now() >= reminder.timestamp
         ) {
-            attemptReminder(reminder);
-        }
+            reminder.triggered = true;
+            reminder.triggeredAt = now();
+            reminder.attempts += 1;
 
-        if (
-            reminder.failed &&
-            !reminder.regretShown &&
-            now() >= reminder.regretAt
-        ) {
-            reminder.regretShown = true;
+            notifyReminder(reminder);
 
-            const message =
-                `I forgot to remind you earlier: "${reminder.text}"`;
+            logEvent(`Reminder triggered: "${reminder.text}"`);
 
-            logEvent(message);
-
-            alert(message);
+            changed = true;
         }
     }
+
+    if (changed) {
+        saveState();
+        renderAll();
+    }
+}
+
+function completeReminder(id) {
+    const reminder = state.reminders.find(
+        item => item.id === id
+    );
+
+    if (!reminder) {
+        return;
+    }
+
+    reminder.completed = true;
+    reminder.completedAt = now();
+
+    logEvent(`Completed reminder: "${reminder.text}"`);
+
+    saveState();
+    renderAll();
 }
 
 function deleteReminder(id) {
@@ -289,6 +468,7 @@ function deleteReminder(id) {
     );
 
     logEvent("Deleted a reminder.");
+
     saveState();
     renderAll();
 }
@@ -299,10 +479,6 @@ function deleteReminder(id) {
 
 function getNoteForgetDelay(note) {
     const priority = priorityToNumber(note.priority);
-
-    /*
-      High-priority notes wait longer before forgetting.
-    */
 
     if (priority === 3) {
         return NOTE_FORGET_INTERVAL * 2;
@@ -327,10 +503,6 @@ function getNoteForgettingChance(note) {
         chance = 0.35;
     }
 
-    /*
-      Opening a note reduces its forgetting chance.
-    */
-
     chance -= opens * 0.05;
 
     return Math.max(0.05, Math.min(1, chance));
@@ -338,6 +510,7 @@ function getNoteForgettingChance(note) {
 
 function createWeakerMemory(note) {
     const content = note.currentContent || note.originalContent;
+
     const words = content
         .split(/\s+/)
         .map(word => word.trim())
@@ -348,13 +521,15 @@ function createWeakerMemory(note) {
     }
 
     if (note.forgettingStage === 1) {
-        const firstPart = words.slice(0, Math.ceil(words.length * 0.6));
-        return `${firstPart.join(" ")}...`;
+        return `${words
+            .slice(0, Math.ceil(words.length * 0.6))
+            .join(" ")}...`;
     }
 
     if (note.forgettingStage === 2) {
-        const firstPart = words.slice(0, Math.ceil(words.length * 0.35));
-        return `${firstPart.join(" ")}...`;
+        return `${words
+            .slice(0, Math.ceil(words.length * 0.35))
+            .join(" ")}...`;
     }
 
     if (note.forgettingStage === 3) {
@@ -369,25 +544,28 @@ function createWeakerMemory(note) {
 }
 
 function createNote(title, topic, content, priority) {
+    const numericPriority = priorityToNumber(priority);
+
     const note = {
         id: createId(),
         title,
         topic,
         originalContent: content,
         currentContent: content,
-        priority: priorityToNumber(priority),
+        priority: numericPriority,
         memoryStrength: 1,
         forgettingStage: 0,
         openCount: 0,
         createdAt: now(),
         nextForgetAt: now() + getNoteForgetDelay({
-            priority: priorityToNumber(priority)
+            priority: numericPriority
         })
     };
 
     state.notes.push(note);
 
     logEvent(`Created note: "${title}"`);
+
     saveState();
     renderAll();
 }
@@ -400,11 +578,10 @@ function openNote(id) {
     }
 
     note.openCount += 1;
-    note.memoryStrength = Math.min(1, note.memoryStrength + 0.15);
-
-    /*
-      Reopening a note can restore some detail.
-    */
+    note.memoryStrength = Math.min(
+        1,
+        note.memoryStrength + 0.15
+    );
 
     if (note.forgettingStage > 0) {
         note.forgettingStage -= 1;
@@ -414,6 +591,7 @@ function openNote(id) {
     note.nextForgetAt = now() + getNoteForgetDelay(note);
 
     logEvent(`Opened note: "${note.title}"`);
+
     saveState();
     renderAll();
 }
@@ -427,6 +605,7 @@ function forgetNote(note) {
     }
 
     note.forgettingStage += 1;
+
     note.memoryStrength = Math.max(
         0,
         note.memoryStrength - 0.2
@@ -437,7 +616,7 @@ function forgetNote(note) {
             `I completely forgot the note: "${note.title}"`;
 
         logEvent(message);
-        alert(message);
+        showInAppNotification("Memory lost", message);
 
         state.notes = state.notes.filter(
             item => item.id !== note.id
@@ -453,7 +632,7 @@ function forgetNote(note) {
         `I forgot some details from the note: "${note.title}"`;
 
     logEvent(message);
-    alert(message);
+    showInAppNotification("Memory fading", message);
 }
 
 function processNotes() {
@@ -468,10 +647,11 @@ function processNotes() {
    Lists and tasks
 -------------------------------------------------- */
 
-function createList(title) {
+function createList(title, priority) {
     const list = {
         id: createId(),
         title,
+        priority: priorityToNumber(priority),
         createdAt: now(),
         items: []
     };
@@ -479,12 +659,15 @@ function createList(title) {
     state.lists.push(list);
 
     logEvent(`Created list: "${title}"`);
+
     saveState();
     renderAll();
 }
 
 function addTask(listId, text) {
-    const list = state.lists.find(item => item.id === listId);
+    const list = state.lists.find(
+        item => item.id === listId
+    );
 
     if (!list || !text.trim()) {
         return;
@@ -499,18 +682,23 @@ function addTask(listId, text) {
     });
 
     logEvent(`Added task to "${list.title}": "${text}"`);
+
     saveState();
     renderAll();
 }
 
 function toggleTask(listId, taskId) {
-    const list = state.lists.find(item => item.id === listId);
+    const list = state.lists.find(
+        item => item.id === listId
+    );
 
     if (!list) {
         return;
     }
 
-    const task = list.items.find(item => item.id === taskId);
+    const task = list.items.find(
+        item => item.id === taskId
+    );
 
     if (!task) {
         return;
@@ -528,9 +716,12 @@ function toggleTask(listId, taskId) {
 }
 
 function deleteList(id) {
-    state.lists = state.lists.filter(list => list.id !== id);
+    state.lists = state.lists.filter(
+        list => list.id !== id
+    );
 
     logEvent("Deleted a list.");
+
     saveState();
     renderAll();
 }
@@ -555,7 +746,7 @@ function processTasks() {
                     `I forgot the task: "${task.text}"`;
 
                 logEvent(message);
-                alert(message);
+                showInAppNotification("Task forgotten", message);
             } else {
                 remainingItems.push(task);
             }
@@ -575,7 +766,9 @@ function processInactivity() {
         state.notes = [];
         state.lists = [];
 
-        logEvent("Three days passed without a visit. Everything was forgotten.");
+        logEvent(
+            "Three days passed without a visit. Everything was forgotten."
+        );
 
         state.lastVisit = now();
     }
@@ -596,33 +789,11 @@ function processTime() {
 function advanceTime(amount) {
     state.demoTime += amount;
 
-    logEvent(`Time advanced by ${formatDuration(amount)}.`);
-
-    processTime();
-}
-
-function formatDuration(milliseconds) {
-    const days = Math.floor(milliseconds / DAY);
-    const hours = Math.floor((milliseconds % DAY) / HOUR);
-    const minutes = Math.floor(
-        (milliseconds % HOUR) / MINUTE
+    logEvent(
+        `Time advanced by ${formatDuration(amount)}.`
     );
 
-    const parts = [];
-
-    if (days > 0) {
-        parts.push(`${days} day${days === 1 ? "" : "s"}`);
-    }
-
-    if (hours > 0) {
-        parts.push(`${hours} hour${hours === 1 ? "" : "s"}`);
-    }
-
-    if (minutes > 0) {
-        parts.push(`${minutes} minute${minutes === 1 ? "" : "s"}`);
-    }
-
-    return parts.length > 0 ? parts.join(", ") : "less than a minute";
+    processTime();
 }
 
 function forceForgetting() {
@@ -631,17 +802,17 @@ function forceForgetting() {
     }
 
     for (const list of state.lists) {
-        const forgottenTasks = [];
+        const remainingTasks = [];
 
         for (const task of list.items) {
-            if (Math.random() < 0.5) {
-                forgottenTasks.push(task.text);
+            if (Math.random() >= 0.5) {
+                remainingTasks.push(task);
+            } else {
+                logEvent(`I forgot the task: "${task.text}"`);
             }
         }
 
-        list.items = list.items.filter(
-            task => !forgottenTasks.includes(task.text)
-        );
+        list.items = remainingTasks;
     }
 
     logEvent("Forced a forgetting cycle.");
@@ -692,7 +863,9 @@ function renderStatus() {
         state.lists.length;
 
     elements.memoryStatus.textContent =
-        `${totalMemories} memory item${totalMemories === 1 ? "" : "s"} stored`;
+        `${totalMemories} memory item${
+            totalMemories === 1 ? "" : "s"
+        } stored`;
 }
 
 function renderClock() {
@@ -711,26 +884,21 @@ function renderReminders() {
     if (state.reminders.length === 0) {
         elements.remindersContainer.innerHTML =
             `<p class="empty-state">No reminders yet.</p>`;
+
         return;
     }
 
     elements.remindersContainer.innerHTML = state.reminders
         .map(reminder => {
-            let status = "Pending";
-
-            if (reminder.completed) {
-                status = "Succeeded";
-            } else if (reminder.failed && reminder.regretShown) {
-                status = "Forgot to remind you";
-            } else if (reminder.failed) {
-                status = "Failed";
-            }
+            const status = getReminderStatus(reminder);
 
             return `
                 <article class="memory-card reminder-card">
                     <div class="card-header">
                         <h3>${escapeHtml(reminder.text)}</h3>
-                        <span class="badge">${status}</span>
+                        <span class="badge">
+                            ${escapeHtml(status)}
+                        </span>
                     </div>
 
                     <p>
@@ -739,25 +907,40 @@ function renderReminders() {
                     </p>
 
                     <p>
-                        Attempts:
-                        ${reminder.attempts}
+                        ${escapeHtml(
+                            reminder.completed
+                                ? "Completed"
+                                : reminder.triggered
+                                    ? "Notification triggered"
+                                    : formatRelativeTime(
+                                        reminder.timestamp
+                                    )
+                        )}
                     </p>
 
-                    ${
-                        !reminder.completed && !reminder.failed
-                            ? `<p>${escapeHtml(
-                                  formatRelativeTime(reminder.timestamp)
-                              )}</p>`
-                            : ""
-                    }
+                    <div class="card-actions">
+                        ${
+                            !reminder.completed
+                                ? `
+                                    <button
+                                        type="button"
+                                        class="complete-reminder"
+                                        data-id="${reminder.id}"
+                                    >
+                                        Complete
+                                    </button>
+                                `
+                                : ""
+                        }
 
-                    <button
-                        type="button"
-                        class="danger delete-reminder"
-                        data-id="${reminder.id}"
-                    >
-                        Delete
-                    </button>
+                        <button
+                            type="button"
+                            class="danger delete-reminder"
+                            data-id="${reminder.id}"
+                        >
+                            Delete
+                        </button>
+                    </div>
                 </article>
             `;
         })
@@ -772,6 +955,7 @@ function renderNotes() {
     if (state.notes.length === 0) {
         elements.notesContainer.innerHTML =
             `<p class="empty-state">No notes yet.</p>`;
+
         return;
     }
 
@@ -781,18 +965,27 @@ function renderNotes() {
                 <article class="memory-card note-card">
                     <div class="card-header">
                         <h3>${escapeHtml(note.title)}</h3>
+
                         <span class="badge">
-                            ${escapeHtml(priorityName(note.priority))}
+                            ${escapeHtml(
+                                priorityName(note.priority)
+                            )}
                         </span>
                     </div>
 
                     ${
                         note.topic
-                            ? `<p class="topic">${escapeHtml(note.topic)}</p>`
+                            ? `
+                                <p class="topic">
+                                    ${escapeHtml(note.topic)}
+                                </p>
+                            `
                             : ""
                     }
 
-                    <p>${escapeHtml(note.currentContent)}</p>
+                    <p>
+                        ${escapeHtml(note.currentContent)}
+                    </p>
 
                     <p class="muted">
                         Memory strength:
@@ -825,24 +1018,87 @@ function renderLists() {
     if (state.lists.length === 0) {
         elements.listsContainer.innerHTML =
             `<p class="empty-state">No lists yet.</p>`;
+
         return;
     }
 
     elements.listsContainer.innerHTML = state.lists
         .map(list => {
-            return `
-                <article class="memory-card list-card">
-                    <div class="card-header">
-                        <h3>${escapeHtml(list.title)}</h3>
+            const priority = priorityName(list.priority);
+            const priorityClass = priority.toLowerCase();
 
-                        <button
-                            type="button"
-                            class="danger delete-list"
-                            data-id="${list.id}"
-                        >
-                            Delete
-                        </button>
+            const tasks = list.items.length === 0
+                ? `
+                    <li class="empty-task-state">
+                        No tasks yet
+                    </li>
+                `
+                : list.items
+                    .map(task => {
+                        return `
+                            <li class="task-item">
+                                <label class="task-row">
+                                    <input
+                                        type="checkbox"
+                                        data-list-id="${list.id}"
+                                        data-task-id="${task.id}"
+                                        ${
+                                            task.completed
+                                                ? "checked"
+                                                : ""
+                                        }
+                                    >
+
+                                    <span class="${
+                                        task.completed
+                                            ? "completed"
+                                            : ""
+                                    }">
+                                        ${escapeHtml(task.text)}
+                                    </span>
+                                </label>
+                            </li>
+                        `;
+                    })
+                    .join("");
+
+            return `
+                <article class="memory-card list-card task-card">
+                    <div class="task-card-top">
+                        <span class="priority-badge ${priorityClass}">
+                            ${escapeHtml(priority)}
+                        </span>
+
+                        <div class="card-menu-wrapper">
+                            <button
+                                type="button"
+                                class="card-menu"
+                                aria-label="List options"
+                                aria-expanded="false"
+                            >
+                                ⋮
+                            </button>
+
+                            <div
+                                class="card-menu-options"
+                                hidden
+                            >
+                                <button
+                                    type="button"
+                                    class="delete-list"
+                                    data-id="${list.id}"
+                                >
+                                    Delete list
+                                </button>
+                            </div>
+                        </div>
                     </div>
+
+                    <h3>${escapeHtml(list.title)}</h3>
+
+                    <ul class="task-list">
+                        ${tasks}
+                    </ul>
 
                     <form
                         class="task-form"
@@ -852,52 +1108,22 @@ function renderLists() {
                             type="text"
                             name="task"
                             placeholder="Add a task"
+                            autocomplete="off"
                             required
-                        />
+                        >
 
-                        <button type="submit">
-                            Add
+                        <button
+                            type="submit"
+                            aria-label="Add task"
+                        >
+                            +
                         </button>
                     </form>
 
-                    ${
-                        list.items.length === 0
-                            ? `<p class="empty-state">No tasks yet.</p>`
-                            : `
-                                <ul class="task-list">
-                                    ${list.items
-                                        .map(task => {
-                                            return `
-                                                <li>
-                                                    <label>
-                                                        <input
-                                                            type="checkbox"
-                                                            data-list-id="${list.id}"
-                                                            data-task-id="${task.id}"
-                                                            ${
-                                                                task.completed
-                                                                    ? "checked"
-                                                                    : ""
-                                                            }
-                                                        />
-
-                                                        <span class="${
-                                                            task.completed
-                                                                ? "completed"
-                                                                : ""
-                                                        }">
-                                                            ${escapeHtml(
-                                                                task.text
-                                                            )}
-                                                        </span>
-                                                    </label>
-                                                </li>
-                                            `;
-                                        })
-                                        .join("")}
-                                </ul>
-                            `
-                    }
+                    <div class="task-card-footer">
+                        <span class="list-icon">☷</span>
+                        <span>List</span>
+                    </div>
                 </article>
             `;
         })
@@ -919,8 +1145,15 @@ function renderEventLog() {
         .map(event => {
             return `
                 <div class="event-entry">
-                    <time>${escapeHtml(formatDate(event.timestamp))}</time>
-                    <span>${escapeHtml(event.message)}</span>
+                    <time>
+                        ${escapeHtml(
+                            formatDate(event.timestamp)
+                        )}
+                    </time>
+
+                    <span>
+                        ${escapeHtml(event.message)}
+                    </span>
                 </div>
             `;
         })
@@ -966,7 +1199,7 @@ function setupEventListeners() {
     }
 
     if (elements.reminderForm) {
-        elements.reminderForm.addEventListener("submit", event => {
+        elements.reminderForm.addEventListener("submit", async event => {
             event.preventDefault();
 
             const text = elements.reminderText.value.trim();
@@ -982,6 +1215,13 @@ function setupEventListeners() {
                 alert("Please enter a valid reminder time.");
                 return;
             }
+
+            if (timestamp <= Date.now()) {
+                alert("Please choose a future date and time.");
+                return;
+            }
+
+            await requestNotificationPermission();
 
             createReminder(text, timestamp);
 
@@ -1002,7 +1242,12 @@ function setupEventListeners() {
                 return;
             }
 
-            createNote(title, topic, content, priority);
+            createNote(
+                title,
+                topic,
+                content,
+                priority
+            );
 
             elements.noteForm.reset();
         });
@@ -1013,87 +1258,171 @@ function setupEventListeners() {
             event.preventDefault();
 
             const title = elements.listTitle.value.trim();
+            const priority = elements.listPriority
+                ? elements.listPriority.value
+                : "medium";
 
             if (!title) {
                 return;
             }
 
-            createList(title);
+            createList(title, priority);
 
             elements.listForm.reset();
         });
     }
 
     if (elements.remindersContainer) {
-        elements.remindersContainer.addEventListener("click", event => {
-            const button = event.target.closest(".delete-reminder");
+        elements.remindersContainer.addEventListener(
+            "click",
+            event => {
+                const completeButton =
+                    event.target.closest(".complete-reminder");
 
-            if (!button) {
-                return;
+                if (completeButton) {
+                    completeReminder(completeButton.dataset.id);
+                    return;
+                }
+
+                const deleteButton =
+                    event.target.closest(".delete-reminder");
+
+                if (deleteButton) {
+                    deleteReminder(deleteButton.dataset.id);
+                }
             }
-
-            deleteReminder(button.dataset.id);
-        });
+        );
     }
 
     if (elements.notesContainer) {
-        elements.notesContainer.addEventListener("click", event => {
-            const button = event.target.closest(".open-note");
+        elements.notesContainer.addEventListener(
+            "click",
+            event => {
+                const button =
+                    event.target.closest(".open-note");
 
-            if (!button) {
-                return;
+                if (!button) {
+                    return;
+                }
+
+                openNote(button.dataset.id);
             }
-
-            openNote(button.dataset.id);
-        });
+        );
     }
 
     if (elements.listsContainer) {
-        elements.listsContainer.addEventListener("submit", event => {
-            const form = event.target.closest(".task-form");
+        elements.listsContainer.addEventListener(
+            "submit",
+            event => {
+                const form =
+                    event.target.closest(".task-form");
 
-            if (!form) {
-                return;
+                if (!form) {
+                    return;
+                }
+
+                event.preventDefault();
+
+                const input = form.elements.task;
+                const text = input.value.trim();
+                const listId = form.dataset.listId;
+
+                if (!text) {
+                    return;
+                }
+
+                addTask(listId, text);
             }
+        );
 
-            event.preventDefault();
+        elements.listsContainer.addEventListener(
+            "change",
+            event => {
+                const checkbox = event.target.closest(
+                    'input[type="checkbox"][data-task-id]'
+                );
 
-            const input = form.elements.task;
-            const text = input.value.trim();
-            const listId = form.dataset.listId;
+                if (!checkbox) {
+                    return;
+                }
 
-            if (!text) {
-                return;
+                toggleTask(
+                    checkbox.dataset.listId,
+                    checkbox.dataset.taskId
+                );
             }
+        );
 
-            addTask(listId, text);
-        });
+        elements.listsContainer.addEventListener(
+            "click",
+            event => {
+                const menuButton =
+                    event.target.closest(".card-menu");
 
-        elements.listsContainer.addEventListener("change", event => {
-            const checkbox = event.target.closest(
-                'input[type="checkbox"][data-task-id]'
-            );
+                if (menuButton) {
+                    const wrapper =
+                        menuButton.closest(".card-menu-wrapper");
 
-            if (!checkbox) {
-                return;
+                    const menu =
+                        wrapper.querySelector(".card-menu-options");
+
+                    const isOpen = !menu.hidden;
+
+                    elements.listsContainer
+                        .querySelectorAll(".card-menu-options")
+                        .forEach(item => {
+                            item.hidden = true;
+                        });
+
+                    elements.listsContainer
+                        .querySelectorAll(".card-menu")
+                        .forEach(button => {
+                            button.setAttribute(
+                                "aria-expanded",
+                                "false"
+                            );
+                        });
+
+                    menu.hidden = isOpen;
+
+                    menuButton.setAttribute(
+                        "aria-expanded",
+                        String(!isOpen)
+                    );
+
+                    return;
+                }
+
+                const deleteButton =
+                    event.target.closest(".delete-list");
+
+                if (deleteButton) {
+                    deleteList(deleteButton.dataset.id);
+                }
             }
-
-            toggleTask(
-                checkbox.dataset.listId,
-                checkbox.dataset.taskId
-            );
-        });
-
-        elements.listsContainer.addEventListener("click", event => {
-            const button = event.target.closest(".delete-list");
-
-            if (!button) {
-                return;
-            }
-
-            deleteList(button.dataset.id);
-        });
+        );
     }
+
+    document.addEventListener("click", event => {
+        if (event.target.closest(".card-menu-wrapper")) {
+            return;
+        }
+
+        document
+            .querySelectorAll(".card-menu-options")
+            .forEach(menu => {
+                menu.hidden = true;
+            });
+
+        document
+            .querySelectorAll(".card-menu")
+            .forEach(button => {
+                button.setAttribute(
+                    "aria-expanded",
+                    "false"
+                );
+            });
+    });
 }
 
 /* --------------------------------------------------
@@ -1115,16 +1444,28 @@ function initialize() {
     saveState();
 
     /*
-      Real-time processing while the page remains open.
+        Real-time processing while the page is open.
+        This checks reminders every second.
     */
+    setInterval(() => {
+        processReminders();
+        renderReminders();
+        renderClock();
+    }, SECOND);
 
+    /*
+        Other memory systems are processed once per minute.
+    */
     setInterval(() => {
         processTime();
     }, MINUTE);
 }
 
 if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", initialize);
+    document.addEventListener(
+        "DOMContentLoaded",
+        initialize
+    );
 } else {
     initialize();
 }

@@ -1,24 +1,47 @@
 :root {
-    --background: #f7f7f5;
+    --background: #faf9f7;
     --surface: #ffffff;
-    --surface-hover: #fafafa;
     --text: #202124;
-    --muted: #777777;
-    --border: #e5e5e5;
-    --accent: #202124;
-    --shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    --muted: #7b8190;
+    --border: #e8e8e8;
+    --shadow: 0 4px 18px rgba(0, 0, 0, 0.06);
+
+    --high-bg: #ffe0e0;
+    --high-text: #b3261e;
+
+    --medium-bg: #fff0c9;
+    --medium-text: #956000;
+
+    --low-bg: #d9f5df;
+    --low-text: #16803c;
 }
+
+/* --------------------------------------------------
+   Reset
+-------------------------------------------------- */
 
 * {
     box-sizing: border-box;
 }
 
+html {
+    min-height: 100%;
+}
+
 body {
-    margin: 0;
     min-height: 100vh;
+    margin: 0;
+
     background: var(--background);
     color: var(--text);
-    font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+
+    font-family:
+        Inter,
+        system-ui,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        sans-serif;
 }
 
 button,
@@ -32,251 +55,749 @@ button {
     cursor: pointer;
 }
 
-.app {
-    width: min(1180px, calc(100% - 40px));
-    margin: 0 auto;
-    padding: 36px 0 48px;
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+    outline: 3px solid rgba(70, 110, 255, 0.25);
+    outline-offset: 2px;
 }
 
-/* Header */
+/* --------------------------------------------------
+   Main application
+-------------------------------------------------- */
+
+.app {
+    width: min(100% - 4rem, 1500px);
+    min-height: 100vh;
+
+    margin: 0 auto;
+    padding: 3.5rem 0 6rem;
+}
 
 .app-header {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
-    gap: 24px;
-    margin-bottom: 42px;
+
+    margin-bottom: 3rem;
 }
 
 .app-header h1 {
-    margin: 8px 0;
-    font-size: clamp(2rem, 4vw, 3rem);
-    font-weight: 700;
+    margin: 0;
+
+    font-size: clamp(2.4rem, 4vw, 4.2rem);
+    font-weight: 750;
     letter-spacing: -0.06em;
+    line-height: 1;
 }
 
 .eyebrow {
-    margin: 0;
+    margin: 0 0 0.8rem;
+
     color: var(--muted);
-    font-size: 0.72rem;
+
+    font-size: 0.75rem;
     font-weight: 700;
-    letter-spacing: 0.12em;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
 }
 
 .subtitle {
-    margin: 12px 0 0;
+    margin: 1rem 0 0;
+
     color: var(--muted);
-    font-size: 0.95rem;
+    font-size: 1.15rem;
 }
 
-/* Remove the old status panel */
-
-.status-panel {
-    display: none;
-}
-
-/* Main layout */
+/* --------------------------------------------------
+   Workspace
+-------------------------------------------------- */
 
 .workspace {
     display: grid;
-    grid-template-columns: 1fr;
-    gap: 42px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+
+    align-items: start;
+    gap: 1.25rem;
 }
 
-.panel {
-    padding: 0;
-    border: 0;
-    background: transparent;
+.entries {
+    display: contents;
 }
 
-.section-heading {
-    display: flex;
-    align-items: end;
-    justify-content: space-between;
-    gap: 20px;
-    margin-bottom: 18px;
-}
+/* --------------------------------------------------
+   Cards
+-------------------------------------------------- */
 
-.section-heading h2 {
-    margin: 6px 0 0;
-    font-size: 1.15rem;
-    letter-spacing: -0.025em;
-}
+.entry,
+.card,
+.memory-card,
+.reminder-card,
+.note-card,
+.list-card {
+    min-width: 0;
+    padding: 1.4rem;
 
-.section-note {
-    margin: 0;
-    color: var(--muted);
-    font-size: 0.8rem;
-}
-
-/* Forms */
-
-.form-grid {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 12px;
-    margin-bottom: 20px;
-    padding: 18px;
-    border: 1px solid var(--border);
-    border-radius: 14px;
     background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 1rem;
+
     box-shadow: var(--shadow);
 }
 
-.form-grid label {
-    display: grid;
-    gap: 7px;
+.entries > * {
+    min-width: 0;
+}
+
+/* Common card text */
+
+.entry h3,
+.card h3,
+.memory-card h3,
+.reminder-card h3,
+.note-card h3,
+.list-card h3 {
+    margin: 0 0 0.65rem;
+
+    font-size: 1.15rem;
+    font-weight: 700;
+    line-height: 1.25;
+}
+
+.entry p,
+.card p,
+.memory-card p,
+.reminder-card p,
+.note-card p,
+.list-card p {
+    margin: 0 0 0.8rem;
+
     color: var(--muted);
+    font-size: 0.95rem;
+    line-height: 1.55;
+}
+
+/* Card header */
+
+.card-header,
+.task-card-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.card-header h3 {
+    min-width: 0;
+}
+
+/* --------------------------------------------------
+   Priority labels
+-------------------------------------------------- */
+
+.priority,
+.priority-badge,
+.badge {
+    display: inline-flex;
+    align-items: center;
+
+    width: fit-content;
+
+    margin-bottom: 0.85rem;
+    padding: 0.35rem 0.75rem;
+
+    border-radius: 0.55rem;
+
+    font-size: 0.78rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.priority-high,
+.high {
+    background: var(--high-bg);
+    color: var(--high-text);
+}
+
+.priority-medium,
+.medium {
+    background: var(--medium-bg);
+    color: var(--medium-text);
+}
+
+.priority-low,
+.low {
+    background: var(--low-bg);
+    color: var(--low-text);
+}
+
+/* --------------------------------------------------
+   Card footer
+-------------------------------------------------- */
+
+.card-footer,
+.task-card-footer {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+
+    margin-top: 1.3rem;
+
+    color: var(--muted);
+    font-size: 0.85rem;
+}
+
+.card-footer span:first-child,
+.list-icon {
+    font-size: 1.35rem;
+}
+
+/* --------------------------------------------------
+   Card buttons
+-------------------------------------------------- */
+
+.entry button,
+.card button,
+.memory-card button,
+.reminder-card button,
+.note-card button,
+.list-card button {
+    border: 0;
+    border-radius: 0.55rem;
+
+    padding: 0.55rem 0.8rem;
+
+    background: var(--text);
+    color: white;
+
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.entry button:hover,
+.card button:hover,
+.memory-card button:hover,
+.reminder-card button:hover,
+.note-card button:hover,
+.list-card button:hover {
+    opacity: 0.85;
+}
+
+/* --------------------------------------------------
+   Reminder cards
+-------------------------------------------------- */
+
+.reminder-card .card-header {
+    align-items: center;
+}
+
+.reminder-card .badge {
+    margin-bottom: 0;
+}
+
+.reminder-card p:last-of-type {
+    margin-bottom: 0;
+}
+
+.delete-reminder {
+    margin-top: 0.5rem;
+}
+
+/* --------------------------------------------------
+   Note cards
+-------------------------------------------------- */
+
+.note-card .topic {
+    margin-top: -0.2rem;
+
     font-size: 0.8rem;
     font-weight: 600;
 }
 
-input,
-textarea,
-select {
-    width: 100%;
-    border: 1px solid var(--border);
-    border-radius: 9px;
-    padding: 11px 12px;
+.note-card .muted {
+    font-size: 0.8rem;
+}
+
+.open-note {
+    margin-top: 0.4rem;
+}
+
+/* --------------------------------------------------
+   Task-list cards
+-------------------------------------------------- */
+
+.task-card {
+    padding-bottom: 1.2rem;
+}
+
+.task-card-top {
+    align-items: center;
+}
+
+.task-card-top .priority-badge {
+    margin-bottom: 0;
+}
+
+/* Three-dot menu */
+
+.card-menu {
+    display: grid;
+
+    width: 2rem;
+    height: 2rem;
+
+    padding: 0 !important;
+
+    place-items: center;
+
+    background: transparent !important;
+    color: var(--muted) !important;
+
+    font-size: 1.5rem !important;
+    line-height: 1;
+}
+
+.card-menu:hover {
+    background: #f2f2f2 !important;
+    color: var(--text) !important;
+    opacity: 1 !important;
+}
+
+/* Task list */
+
+.task-list {
+    display: grid;
+    gap: 0.65rem;
+
+    margin: 1rem 0 0;
+    padding: 0;
+
+    list-style: none;
+}
+
+.task-item {
+    min-width: 0;
+}
+
+.task-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.7rem;
+
+    color: var(--muted);
+
+    font-size: 0.95rem;
+    line-height: 1.45;
+
+    cursor: pointer;
+}
+
+.task-row input {
+    flex: 0 0 auto;
+
+    width: 1.2rem;
+    height: 1.2rem;
+
+    margin: 0.1rem 0 0;
+
+    accent-color: #2879df;
+}
+
+.task-row span {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.task-row .completed {
+    color: var(--muted);
+    text-decoration: line-through;
+}
+
+.empty-task-state {
+    color: var(--muted);
+
+    font-size: 0.9rem;
+    font-style: italic;
+}
+
+/* Add-task form */
+
+.task-form {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+
+    margin-top: 1rem;
+}
+
+.task-form input {
+    min-width: 0;
+    flex: 1;
+
+    padding: 0.55rem 0;
+
+    border: 0;
+    border-bottom: 1px solid var(--border);
+
+    background: transparent;
+    color: var(--text);
+
+    font-size: 0.9rem;
+}
+
+.task-form input:focus {
     outline: none;
+    border-bottom-color: var(--text);
+}
+
+.task-form button {
+    display: grid;
+
+    width: 2rem;
+    height: 2rem;
+
+    padding: 0 !important;
+
+    place-items: center;
+
+    border-radius: 50% !important;
+
+    background: transparent !important;
+    color: var(--muted) !important;
+
+    font-size: 1.4rem !important;
+    font-weight: 400 !important;
+}
+
+.task-form button:hover {
+    background: #f2f2f2 !important;
+    color: var(--text) !important;
+    opacity: 1 !important;
+}
+
+.task-card-footer {
+    margin-top: 1rem;
+}
+
+/* --------------------------------------------------
+   Floating add button
+-------------------------------------------------- */
+
+.floating-add-button {
+    position: fixed;
+    right: 2.5rem;
+    bottom: 2.5rem;
+    z-index: 20;
+
+    display: grid;
+
+    width: 4.2rem;
+    height: 4.2rem;
+
+    place-items: center;
+
+    border: none;
+    border-radius: 50%;
+
+    background: #202124;
+    color: white;
+
+    font-size: 2.4rem;
+    font-weight: 300;
+    line-height: 1;
+
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+
+    transition:
+        transform 0.15s ease,
+        box-shadow 0.15s ease;
+}
+
+.floating-add-button:hover {
+    transform: scale(1.06);
+
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.27);
+}
+
+/* --------------------------------------------------
+   Popup overlay
+-------------------------------------------------- */
+
+.popup-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 30;
+
+    display: grid;
+    place-items: center;
+
+    padding: 1rem;
+
+    background: rgba(20, 20, 20, 0.28);
+
+    backdrop-filter: blur(5px);
+}
+
+.popup-overlay[hidden] {
+    display: none;
+}
+
+/* --------------------------------------------------
+   Popup
+-------------------------------------------------- */
+
+.add-popup {
+    position: relative;
+
+    width: min(100%, 30rem);
+    max-width: 30rem;
+
+    max-height: calc(100vh - 2rem);
+    overflow-y: auto;
+
+    padding: 2rem;
+
     background: var(--surface);
+
+    border: 1px solid var(--border);
+    border-radius: 1.2rem;
+
+    box-shadow: 0 25px 80px rgba(0, 0, 0, 0.18);
+}
+
+.add-popup h2 {
+    margin: 0;
+
+    font-size: 1.5rem;
+    letter-spacing: -0.03em;
+}
+
+.add-popup > p {
+    margin: 0.5rem 0 0;
+
+    color: var(--muted);
+}
+
+/* Close button */
+
+.close-popup {
+    position: absolute;
+    top: 0.8rem;
+    right: 1rem;
+
+    border: none;
+
+    background: transparent;
+    color: var(--muted);
+
+    font-size: 1.8rem;
+    line-height: 1;
+}
+
+.close-popup:hover {
     color: var(--text);
 }
 
-textarea {
-    resize: vertical;
+/* --------------------------------------------------
+   Popup choices
+-------------------------------------------------- */
+
+.add-options {
+    display: none;
+    gap: 0.75rem;
+
+    margin-top: 1.5rem;
 }
 
-input:focus,
-textarea:focus,
-select:focus {
-    border-color: #999999;
+.add-options.active {
+    display: grid;
 }
 
-/* Buttons */
+.add-options button {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
 
-button {
-    border: 1px solid var(--accent);
-    border-radius: 9px;
-    padding: 10px 15px;
-    background: var(--accent);
-    color: white;
-    font-size: 0.85rem;
-    font-weight: 600;
+    padding: 1rem;
+
+    border: 1px solid var(--border);
+    border-radius: 0.8rem;
+
+    background: white;
+    color: var(--text);
+
+    text-align: left;
+
     transition:
         background 0.15s ease,
         transform 0.15s ease;
 }
 
-button:hover {
-    background: #444444;
+.add-options button:hover {
+    background: #f7f7f7;
+    transform: translateY(-1px);
 }
 
-button:active {
-    transform: translateY(1px);
-}
-
-/* Saved items */
-
-.entries {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-    gap: 14px;
-}
-
-.entry,
-.note-card,
-.reminder-card,
-.list-card {
-    min-width: 0;
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 17px;
-    background: var(--surface);
-    box-shadow: var(--shadow);
-}
-
-.entry:hover,
-.note-card:hover,
-.reminder-card:hover,
-.list-card:hover {
-    background: var(--surface-hover);
-}
-
-.entry h3,
-.note-card h3,
-.reminder-card h3,
-.list-card h3 {
-    margin: 0 0 9px;
+.add-options strong {
     font-size: 1rem;
 }
 
-.entry p,
-.note-card p,
-.reminder-card p,
-.list-card p {
+.add-options span {
     color: var(--muted);
-    font-size: 0.88rem;
-    line-height: 1.6;
+    font-size: 0.85rem;
 }
 
-/* Tasks */
+/* --------------------------------------------------
+   Popup forms
+-------------------------------------------------- */
 
-.task {
+.popup-form {
+    display: none;
+    gap: 1rem;
+
+    margin-top: 1.5rem;
+}
+
+.popup-form.active {
+    display: grid;
+}
+
+.popup-form h3 {
+    margin: 0;
+
+    font-size: 1.25rem;
+}
+
+.popup-form label {
+    display: grid;
+    gap: 0.4rem;
+
+    color: var(--text);
+
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.popup-form input,
+.popup-form textarea,
+.popup-form select {
+    width: 100%;
+
+    padding: 0.8rem;
+
+    border: 1px solid var(--border);
+    border-radius: 0.65rem;
+
+    background: white;
+    color: var(--text);
+
+    font-size: 0.95rem;
+}
+
+.popup-form textarea {
+    resize: vertical;
+}
+
+.popup-form input::placeholder,
+.popup-form textarea::placeholder {
+    color: #a0a4ad;
+}
+
+.popup-actions {
     display: flex;
-    align-items: center;
-    gap: 9px;
-    padding: 8px 0;
-    border-bottom: 1px solid var(--border);
+    gap: 0.7rem;
+
+    margin-top: 0.25rem;
 }
 
-.task:last-child {
-    border-bottom: 0;
+.popup-actions button {
+    padding: 0.7rem 1rem;
+
+    border: none;
+    border-radius: 0.6rem;
+
+    background: var(--text);
+    color: white;
+
+    font-weight: 600;
 }
 
-.task input[type="checkbox"] {
-    width: auto;
+.popup-actions .secondary-button {
+    background: transparent;
+
+    border: 1px solid var(--border);
+    color: var(--text);
 }
 
-/* Event log hidden from the normal interface */
-
-.event-panel {
-    display: none;
+.popup-actions .secondary-button:hover {
+    background: #f7f7f7;
 }
 
-.event-log {
-    display: none;
-}
+/* --------------------------------------------------
+   Empty states
+-------------------------------------------------- */
 
-/* Footer */
+.empty-state {
+    grid-column: 1 / -1;
 
-.app-footer {
-    margin-top: 48px;
+    margin: 0;
+    padding: 2rem;
+
     color: var(--muted);
-    font-size: 0.75rem;
+
     text-align: center;
 }
 
-/* Mobile */
+/* --------------------------------------------------
+   Responsive layout
+-------------------------------------------------- */
 
-@media (max-width: 650px) {
+@media (max-width: 1100px) {
+    .workspace {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 700px) {
     .app {
-        width: min(100% - 24px, 1180px);
-        padding-top: 24px;
+        width: min(100% - 2rem, 1500px);
+        padding-top: 2rem;
     }
 
     .app-header {
-        margin-bottom: 30px;
+        margin-bottom: 2rem;
     }
 
-    .section-heading {
-        align-items: start;
-        flex-direction: column;
-        gap: 8px;
+    .app-header h1 {
+        font-size: 2.4rem;
     }
 
-    .entries {
+    .subtitle {
+        font-size: 1rem;
+    }
+
+    .workspace {
         grid-template-columns: 1fr;
+    }
+
+    .floating-add-button {
+        right: 1.25rem;
+        bottom: 1.25rem;
+    }
+
+    .add-popup {
+        padding: 1.5rem;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        scroll-behavior: auto !important;
+        transition-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
     }
 }

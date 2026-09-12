@@ -10,8 +10,8 @@
 
 
 ### Team Members
-- Team Lead: Joel Joseph - SNMIMT.
-- Member 2: Abhinavkrishna Prakash - SNMIMT.
+- Team Lead: Joel Joseph - SNM Insstitute of Management & Technology.
+- Member 2: Abhinavkrishna Prakash - SNM Insstitute of Management & Technology.
 
 ### Project Description
 A notes application where you can add notes, to-do lists/tasks and reminders that are very important. If you think you'll forget something add that to the app it will also forget. "The design is very human".
